@@ -1,0 +1,824 @@
+local Device = require("device")
+local Screen = Device.screen
+local UIManager = require("ui/uimanager")
+local Blitbuffer = require("ffi/blitbuffer")
+local Font = require("ui/font")
+local Geometry = require("ui/geometry")
+local Size = require("ui/size")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local RadioButtonTable = require("ui/widget/radiobuttontable")
+local InputDialog = require("ui/widget/inputdialog")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local TextWidget = require("ui/widget/textwidget")
+local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
+local ButtonWidget    = require("ui/widget/button")
+local ButtonProgressWidget = require("ui/widget/buttonprogresswidget")
+local DoubleSpinWidget = require("ui/widget/doublespinwidget")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local MovableContainer = require("ui/widget/container/movablecontainer")
+local ConfirmBox = require("ui/widget/confirmbox")
+local InfoMessage = require("ui/widget/infomessage")
+
+local Chess = require("chessgame")
+local EngineWidget = require("enginewidget")
+local InterfaceWidget = require("interfacewidget")
+local LichessWidget = require("lichesswidget")
+local _ = require("gettext")
+
+local BACKGROUND_COLOR = Blitbuffer.COLOR_WHITE
+local MODE_CHESS = "chess"
+local MODE_CHECKERS = "checkers"
+local MODE_FOXHOUND = "foxhound"
+local MODE_REVERSI = "reversi"
+
+local SettingsWidget = {}
+SettingsWidget.__index = SettingsWidget
+
+function SettingsWidget:new(opts)
+    assert(opts.parent,   "parent is required")
+
+    self = setmetatable({
+        engine     = opts.engine,
+        timer      = opts.timer,
+        game       = opts.game,
+        onApply    = opts.onApply or function() end,
+        onCancel   = opts.onCancel,
+        parent     = opts.parent,
+        dialog     = nil,
+        changes    = {},
+    }, SettingsWidget)
+
+    self:initializeState()
+    return self
+end
+
+function SettingsWidget:initializeState()
+    self.min_skill = 0
+    self.max_skill = 20
+
+    self.min_base_min = 1
+    self.max_base_min = 180
+    self.min_incr_sec = 0
+    self.max_incr_sec = 60
+
+    local currentSkill = (self.parent and tonumber(self.parent.current_skill)) or nil
+
+    local engine_options = (self.engine and self.engine.state and self.engine.state.options) or {}
+
+    if not currentSkill then
+        local skillOpt = engine_options["Skill Level"]
+        currentSkill = (skillOpt and tonumber(skillOpt.value)) or 0
+    end
+    currentSkill = math.max(0, math.min(20, currentSkill))
+
+    self.min_elo   = 1350
+    self.max_elo   = 2850
+    self.elo_step  = 50
+
+    local eloOpt = engine_options["UCI_Elo"]
+    local currentElo = (eloOpt and tonumber(eloOpt.value)) or 1350
+    currentElo = math.max(self.min_elo, math.min(self.max_elo, currentElo))
+
+    -- When opened from the start menu, self.game and self.timer may be nil.
+    -- Use safe fallbacks so the UI can still render and the user can change
+    -- settings before any game has been created.
+    local human_w = true
+    local human_b = false
+    if self.game and self.game.is_human then
+        human_w = self.game.is_human(Chess.WHITE)
+        human_b = self.game.is_human(Chess.BLACK)
+    end
+
+    local base_w_min = 15
+    local base_b_min = 15
+    local incr_w_sec = 10
+    local incr_b_sec = 10
+    if self.timer and self.timer.base then
+        base_w_min = (self.timer.base[Chess.WHITE] or 900) / 60
+        base_b_min = (self.timer.base[Chess.BLACK] or 900) / 60
+        incr_w_sec = (self.timer.increment and self.timer.increment[Chess.WHITE]) or 10
+        incr_b_sec = (self.timer.increment and self.timer.increment[Chess.BLACK]) or 10
+    end
+
+    self.changes = {
+        human_choice = {
+            [Chess.WHITE] = human_w,
+            [Chess.BLACK] = human_b,
+        },
+        game_mode      = (self.parent and self.parent.getSetting and self.parent:getSetting("game_mode", MODE_CHESS)) or MODE_CHESS,
+        skill_level     = currentSkill,
+        elo_strength    = currentElo,
+        engine_depth    = (self.parent and self.parent.engine_depth) or 2,
+        engine_movetime = (self.parent and self.parent.engine_movetime) or 1,
+        blunder_chance  = (self.parent and self.parent.blunder_chance) or 0.20,
+        force_goldfish  = (self.parent and self.parent.getSetting and self.parent:getSetting("force_goldfish", false)) or false,
+        learning_mode   = (self.parent and self.parent.board and self.parent.board.learning_mode == true) or false,
+        show_selected   = not (self.parent and self.parent.board and self.parent.board.show_selected == false),
+        previous_move_hints = (self.parent and self.parent.board and self.parent.board.previous_move_hints == true) or false,
+        opponent_hints = (self.parent and self.parent.board and self.parent.board.opponent_hints == true) or false,
+        check_hints = (self.parent and self.parent.board and self.parent.board.check_hints == true) or false,
+        rotate_top_pieces = (self.parent and self.parent.board and self.parent.board.rotate_top_pieces == true) or false,
+        thinking_indicator = not (self.parent and self.parent.getSetting and self.parent:getSetting("thinking_indicator", true) == false),
+        time_control = {
+            [Chess.WHITE] = {
+                base_minutes  = base_w_min,
+                incr_seconds  = incr_w_sec,
+            },
+            [Chess.BLACK] = {
+                base_minutes  = base_b_min,
+                incr_seconds  = incr_b_sec,
+            },
+        },
+    }
+end
+
+function SettingsWidget:show()
+    local dlg = InputDialog:new{
+        title          = _("Offline Settings"),
+        save_callback  = function() self:applyAndClose() end,
+        dismiss_callback = function()
+            if self.onCancel then self.onCancel() end
+        end,
+    }
+    dlg.element_width = math.floor(dlg.width * 0.8)
+    self.dialog = dlg
+
+    self:buildGameModeGroup()
+    self:buildPlayerTypeGroup()
+    self:buildDifficultyGroup()
+    self:buildInterfaceButton()
+    self:buildEngineButton()
+    self:assembleContent()
+
+    dlg:refocusWidget()
+    UIManager:show(dlg)
+end
+
+function SettingsWidget:isCheckersMode()
+    return self.changes.game_mode == MODE_CHECKERS
+end
+
+function SettingsWidget:isFoxHoundMode()
+    return self.changes.game_mode == MODE_FOXHOUND
+end
+
+function SettingsWidget:isReversiMode()
+    return self.changes.game_mode == MODE_REVERSI
+end
+
+function SettingsWidget:buildGameModeGroup()
+    local w = self.dialog.element_width
+    local function onSelect(entry)
+        self.changes.game_mode = entry.mode
+        self:markDirty()
+    end
+    self.gameModeGroup = RadioButtonTable:new{
+        width = w,
+        radio_buttons = {
+            {
+                { text = _("Chess"), checked = self.changes.game_mode ~= MODE_CHECKERS and self.changes.game_mode ~= MODE_FOXHOUND and self.changes.game_mode ~= MODE_REVERSI, mode = MODE_CHESS },
+                { text = _("Checkers"), checked = self.changes.game_mode == MODE_CHECKERS, mode = MODE_CHECKERS },
+            },
+            {
+                { text = _("Fox & Hounds"), checked = self.changes.game_mode == MODE_FOXHOUND, mode = MODE_FOXHOUND },
+                { text = _("Reversi"), checked = self.changes.game_mode == MODE_REVERSI, mode = MODE_REVERSI },
+            },
+        },
+        button_select_callback = onSelect,
+        parent = self.dialog,
+    }
+end
+
+function SettingsWidget:markDirty()
+    -- InputDialog uses this private hook to enable Save while editing.
+    if self.dialog._buttons_edit_callback then
+        self.dialog:_buttons_edit_callback(true)
+    end
+    UIManager:setDirty(self.parent, "ui")
+end
+
+function SettingsWidget:buildPlayerTypeGroup()
+    local w = self.dialog.element_width
+
+    local function fmt(b, i)
+        if i > 0 then return string.format("%d min  +%ds", b, i)
+        else return string.format("%d min", b) end
+    end
+
+    local function openTimePicker(color, btn)
+        local cur = self.changes.time_control[color]
+        local color_name = (color == Chess.WHITE) and _("White") or _("Black")
+        UIManager:show(DoubleSpinWidget:new{
+            title_text    = color_name .. " " .. _("Time"),
+            left_text     = _("Minutes"),
+            left_min      = self.min_base_min,
+            left_max      = self.max_base_min,
+            left_value    = cur.base_minutes,
+            left_default  = 15,
+            right_text    = _("Increment (s)"),
+            right_min     = self.min_incr_sec,
+            right_max     = self.max_incr_sec,
+            right_value   = cur.incr_seconds,
+            right_default = 10,
+            callback = function(left_val, right_val)
+                cur.base_minutes = left_val
+                cur.incr_seconds = right_val
+                btn.text = fmt(left_val, right_val)
+                btn.width = btn.width
+                btn:init()
+                self:markDirty()
+                UIManager:setDirty(self, "ui")
+            end,
+        })
+    end
+
+    local function onSelect(entry)
+        self.changes.human_choice[entry.color] = (entry.text == _("Human"))
+        self:markDirty()
+    end
+
+    local function makeRow(color)
+        local cur = self.changes.time_control[color]
+        local radio_w = math.floor(w * 0.60)
+        local btn_w   = math.floor(w * 0.35)
+        local label = (color == Chess.WHITE) and _("White") or _("Black")
+        local btn
+        btn = ButtonWidget:new{
+            text     = fmt(cur.base_minutes, cur.incr_seconds),
+            width    = btn_w,
+            radius   = Size.radius.button,
+            padding  = Size.padding.small,
+            callback = function() openTimePicker(color, btn) end,
+        }
+        local radios = RadioButtonTable:new{
+            width  = radio_w,
+            radio_buttons = {
+                {{ text = _("Human"),    checked =     self.changes.human_choice[color], color = color }},
+                {{ text = _("Computer"), checked = not self.changes.human_choice[color], color = color }},
+            },
+            button_select_callback = onSelect,
+            parent = self.dialog,
+        }
+        local radioCol = VerticalGroup:new{
+            width = radio_w,
+            TextWidget:new{ text = label .. ":", face = Font:getFace("cfont", 22) },
+            VerticalSpan:new{ width = Size.padding.small },
+            radios,
+        }
+        return HorizontalGroup:new{
+            width   = w,
+            spacing = Size.padding.large,
+            radioCol,
+            btn,
+        }
+    end
+
+    self.playerSettingsGroup = VerticalGroup:new{
+        width   = w,
+        spacing = Size.padding.large,
+        makeRow(Chess.WHITE),
+        makeRow(Chess.BLACK),
+    }
+end
+
+function SettingsWidget:buildDifficultyGroup()
+    local w = self.dialog.element_width
+
+    self.difficultyPresets = {
+        {
+            name          = _("Newcomer"),
+            skill_level   = 0,
+            engine_depth  = 1,
+            engine_movetime = 1,
+            blunder_chance  = 0.50,
+        },
+        {
+            name          = _("Beginner"),
+            skill_level   = 0,
+            engine_depth  = 1,
+            engine_movetime = 1,
+            blunder_chance  = 0.35,
+        },
+        {
+            name          = _("Learner"),
+            skill_level   = 0,
+            engine_depth  = 1,
+            engine_movetime = 1,
+            blunder_chance  = 0.25,
+        },
+        {
+            name          = _("Casual"),
+            skill_level   = 0,
+            engine_depth  = 2,
+            engine_movetime = 1,
+            blunder_chance  = 0.20,
+        },
+        {
+            name          = _("Developing"),
+            skill_level   = 0,
+            engine_depth  = 2,
+            engine_movetime = 1,
+            blunder_chance  = 0.10,
+        },
+        {
+            name          = _("Intermediate"),
+            skill_level   = 0,
+            engine_depth  = 3,
+            engine_movetime = 1,
+            blunder_chance  = 0.10,
+        },
+        {
+            name          = _("Skilled"),
+            skill_level   = 3,
+            engine_depth  = 3,
+            engine_movetime = 1,
+            blunder_chance  = 0.05,
+        },
+        {
+            name          = _("Strong"),
+            skill_level   = 5,
+            engine_depth  = 4,
+            engine_movetime = 1,
+            blunder_chance  = 0.05,
+        },
+        {
+            name          = _("Expert"),
+            skill_level   = 7,
+            engine_depth  = 4,
+            engine_movetime = 1,
+            blunder_chance  = 0.0,
+        },
+        {
+            name          = _("Advanced"),
+            skill_level   = 9,
+            engine_depth  = 5,
+            engine_movetime = 1,
+            blunder_chance  = 0.0,
+        },
+        {
+            name          = _("Club Player"),
+            skill_level   = 10,
+            engine_depth  = 0,
+            engine_movetime = 1,
+            blunder_chance  = 0.0,
+        },
+        {
+            name          = _("Master"),
+            skill_level   = 20,
+            engine_depth  = 0,
+            engine_movetime = 10,
+            blunder_chance  = 0.0,
+        },
+    }
+    local PRESETS = self.difficultyPresets
+
+    self.difficultyLabelWidget = TextWidget:new{
+        text = self:getDifficultyLabel(),
+        face = Font:getFace("cfont", 22),
+    }
+
+    local function applyPreset(pos)
+        local p = PRESETS[pos]
+        if not p then return end
+        self.changes.skill_level     = p.skill_level
+        self.changes.engine_depth    = p.engine_depth
+        self.changes.engine_movetime = p.engine_movetime
+        self.changes.blunder_chance  = p.blunder_chance
+        self:applyEngineChanges(self.changes)
+        self:refreshDifficultyLabel()
+        self:markDirty()
+        UIManager:setDirty(self.parent, "ui")
+    end
+
+    local cur = self:getCurrentDifficultyPosition() or 4
+    self.difficultyProgress = ButtonProgressWidget:new{
+        width       = w,
+        num_buttons = #PRESETS,
+        position    = cur,
+        fine_tune   = true,
+        callback    = function(pos)
+            local p = self:getCurrentDifficultyPosition() or 1
+            if pos == "+" then p = math.min(#PRESETS, p + 1)
+            elseif pos == "-" then p = math.max(1, p - 1)
+            else p = pos end
+            self.difficultyProgress.position = p
+            applyPreset(p)
+        end,
+    }
+
+    self.difficultyGroup = VerticalGroup:new{
+        width = w,
+        self.difficultyLabelWidget,
+        VerticalSpan:new{ width = Size.padding.small },
+        self.difficultyProgress,
+    }
+end
+
+function SettingsWidget:getCurrentDifficultyPosition()
+    for i, p in ipairs(self.difficultyPresets or {}) do
+        if p.skill_level == self.changes.skill_level
+        and p.engine_depth == self.changes.engine_depth
+        and p.engine_movetime == self.changes.engine_movetime
+        and math.abs((p.blunder_chance or 0) - (self.changes.blunder_chance or 0)) < 0.01
+        then
+            return i
+        end
+    end
+end
+
+function SettingsWidget:getDifficultyLabel()
+    if not self:isCheckersMode() and not self:isFoxHoundMode() and not self:isReversiMode() and (self.changes.force_goldfish or (self.parent and self.parent.goldfish_active)) then
+        return "Goldfish ELO: ~600"
+    end
+    local pos = self:getCurrentDifficultyPosition()
+    if pos then
+        local p = self.difficultyPresets[pos]
+        local elo = EngineWidget.computeElo(
+            p.skill_level,
+            p.engine_depth,
+            p.engine_movetime,
+            p.blunder_chance
+        )
+        return p.name .. "  ELO: ~" .. tostring(elo)
+    end
+
+    local elo = EngineWidget.computeElo(
+        tonumber(self.changes.skill_level) or 0,
+        tonumber(self.changes.engine_depth) or 0,
+        tonumber(self.changes.engine_movetime) or 1,
+        tonumber(self.changes.blunder_chance) or 0
+    )
+    return _("Custom ELO") .. ": ~" .. tostring(elo)
+end
+
+function SettingsWidget:refreshDifficultyLabel()
+    if self.difficultyLabelWidget then
+        self.difficultyLabelWidget:setText(self:getDifficultyLabel())
+    end
+end
+
+function SettingsWidget:buildEngineButton()
+    local w = self.dialog.element_width
+    self.engineButton = ButtonWidget:new{
+        text    = _("Computer Engine..."),
+        width   = w,
+        radius  = Size.radius.button,
+        padding = Size.padding.small,
+        enabled = not self:isOnlineMode(),
+        callback = function()
+            if not self:isCheckersMode() and not self:isFoxHoundMode() and not self:isReversiMode() and not (self.engine and self.engine.state and self.engine.state.uciok) then
+                local text = _("Stockfish engine is not ready.")
+                if self.parent and self.parent.getEngineStatusText then
+                    text = self.parent:getEngineStatusText()
+                end
+                UIManager:show(InfoMessage:new{ text = text })
+                return
+            end
+            local ew = EngineWidget:new{
+                engine  = self.engine,
+                parent  = self.parent,
+                initial = {
+                    skill_level     = self.changes.skill_level,
+                    engine_depth    = self.changes.engine_depth,
+                    engine_movetime = self.changes.engine_movetime,
+                    blunder_chance  = self.changes.blunder_chance,
+                    force_goldfish  = self.changes.force_goldfish,
+                },
+                onSave = function(saved)
+                    self.changes.skill_level     = saved.skill_level
+                    self.changes.engine_depth    = saved.engine_depth
+                    self.changes.engine_movetime = saved.engine_movetime
+                    self.changes.blunder_chance  = saved.blunder_chance
+                    self.changes.force_goldfish  = saved.force_goldfish
+                    self:applyEngineChanges(saved)
+                    self:refreshDifficultyLabel()
+                    self:markDirty()
+                    UIManager:setDirty(self.parent, "ui")
+                end,
+            }
+            ew:show()
+        end,
+    }
+    self.engineButtonGroup = CenterContainer:new{
+        dimen = Geometry:new{ w = self.dialog.width, h = self.engineButton:getSize().h },
+        self.engineButton,
+    }
+end
+
+function SettingsWidget:isOnlineMode()
+    return self.parent and self.parent.isLichessMode and self.parent:isLichessMode()
+end
+
+function SettingsWidget:buildLichessButton()
+    local w = self.dialog.element_width
+    self.lichessButton = ButtonWidget:new{
+        text    = _("Play on Lichess..."),
+        width   = w,
+        radius  = Size.radius.button,
+        padding = Size.padding.small,
+        enabled = not self:isCheckersMode() and not self:isFoxHoundMode()
+            and not self:isReversiMode(),
+        callback = function()
+            local p = self.parent
+            local function get(key, default)
+                if p and p.getSetting then return p:getSetting(key, default) end
+                return default
+            end
+            local lw = LichessWidget:new{
+                parent = p,
+                initial = {
+                    play_online     = get("play_online", false),
+                    lichess_token   = get("lichess_token", ""),
+                    seek_minutes    = get("seek_minutes", 10),
+                    seek_increment  = get("seek_increment", 0),
+                    seek_rated      = get("seek_rated", false),
+                    seek_color      = get("seek_color", "random"),
+                    lichess_game_id = get("lichess_game_id", ""),
+                },
+                onSave = function(saved)
+                    if p and p.setSetting then
+                        p:setSetting("play_online",     saved.play_online and true or false)
+                        p:setSetting("lichess_token",   saved.lichess_token or "")
+                        p:setSetting("seek_minutes",    tonumber(saved.seek_minutes) or 10)
+                        p:setSetting("seek_increment",  tonumber(saved.seek_increment) or 0)
+                        p:setSetting("seek_rated",      saved.seek_rated and true or false)
+                        p:setSetting("seek_color",      saved.seek_color or "random")
+                        p:setSetting("lichess_game_id", saved.lichess_game_id or "")
+                    end
+                    self:markDirty()
+                    UIManager:setDirty(self.parent, "ui")
+                end,
+            }
+            lw:show()
+        end,
+    }
+end
+
+function SettingsWidget:buildInterfaceButton()
+    local w = self.dialog.element_width
+    self.interfaceButton = ButtonWidget:new{
+        text    = _("Interface"),
+        width   = w,
+        radius  = Size.radius.button,
+        padding = Size.padding.small,
+        callback = function()
+            local iw = InterfaceWidget:new{
+                parent = self.parent,
+                initial = {
+                    show_selected = self.changes.show_selected,
+                    learning_mode = self.changes.learning_mode,
+                    previous_move_hints = self.changes.previous_move_hints,
+                    opponent_hints = self.changes.opponent_hints,
+                    check_hints = self.changes.check_hints,
+                    rotate_top_pieces = self.changes.rotate_top_pieces,
+                    thinking_indicator = self.changes.thinking_indicator,
+                },
+                onSave = function(saved)
+                    self.changes.show_selected = saved.show_selected
+                    self.changes.learning_mode = saved.learning_mode
+                    self.changes.previous_move_hints = saved.previous_move_hints
+                    self.changes.opponent_hints = saved.opponent_hints
+                    self.changes.check_hints = saved.check_hints
+                    self.changes.rotate_top_pieces = saved.rotate_top_pieces
+                    self.changes.thinking_indicator = saved.thinking_indicator
+                    self:applyInterfaceChanges(saved)
+                    self:markDirty()
+                    UIManager:setDirty(self.parent, "ui")
+                end,
+            }
+            iw:show()
+        end,
+    }
+end
+
+function SettingsWidget:applyInterfaceChanges(s)
+    -- The move-hint overlays stay off during a Lichess game; the preference is
+    -- still stored, it just does not take effect online.
+    local online = self:isOnlineMode()
+    if self.parent and self.parent.board then
+        local board = self.parent.board
+        board.show_selected = s.show_selected and true or false
+        board.learning_mode = not online and s.learning_mode and true or false
+        board.previous_move_hints = s.previous_move_hints and true or false
+        board.opponent_hints = not online and s.opponent_hints and true or false
+        board.check_hints = s.check_hints and true or false
+        board:setRotateTopPieces(s.rotate_top_pieces and true or false)
+        if not board.learning_mode then
+            board:clearValidMoves()
+            board:clearPreviousMoveHints()
+            board:clearCheckHint()
+        elseif board.check_hints then
+            board:markCheckHint()
+        else
+            board:clearCheckHint()
+        end
+        if not board.show_selected and board.selected then
+            board:unmarkSelected(board.selected)
+        end
+    end
+    if self.parent and self.parent.setSetting then
+        local p = self.parent
+        p:setSetting("learning_mode", s.learning_mode and true or false)
+        p:setSetting("show_selected", s.show_selected and true or false)
+        p:setSetting("previous_move_hints", s.previous_move_hints and true or false)
+        p:setSetting("opponent_hints", s.opponent_hints and true or false)
+        p:setSetting("check_hints", s.check_hints and true or false)
+        p:setSetting("rotate_top_pieces", s.rotate_top_pieces and true or false)
+        p:setSetting("thinking_indicator", s.thinking_indicator ~= false)
+    end
+end
+
+function SettingsWidget:applyEngineChanges(s)
+    local engine_options = (self.engine and self.engine.state and self.engine.state.options) or {}
+    local optSkill = engine_options["Skill Level"]
+    local v = math.max(0, math.min(20, tonumber(s.skill_level) or 0))
+    if optSkill and self.engine then self.engine:setOption("Skill Level", tostring(v)) end
+    if self.parent then
+        self.parent.current_skill = v
+        self.parent.engine_movetime = math.max(1, math.min(10, tonumber(s.engine_movetime) or 1))
+        local d = tonumber(s.engine_depth) or 0
+        self.parent.engine_depth = (d >= 1 and d <= 5) and d or 0
+        local bc = math.max(0.0, math.min(1.0, tonumber(s.blunder_chance) or 0.0))
+        self.parent.blunder_chance = bc
+        if self.parent.weakening then self.parent.weakening:setChance(bc) end
+    end
+    if self.parent and self.parent.setSetting then
+        local p = self.parent
+        local force_goldfish = s.force_goldfish and true or false
+        p:setSetting("skill_level",     v)
+        p:setSetting("engine_depth",    self.parent.engine_depth)
+        p:setSetting("engine_movetime", self.parent.engine_movetime)
+        p:setSetting("blunder_chance",  self.parent.blunder_chance)
+        p:setSetting("force_goldfish",  force_goldfish)
+        if force_goldfish and p.isChessMode and p:isChessMode() then
+            p.engine_status_text = "Goldfish forced for testing."
+            if p.startGoldfishFallback then p:startGoldfishFallback() end
+        elseif p.goldfish_active and p.isChessMode and p:isChessMode() then
+            if p.shutdownEngine then p:shutdownEngine() end
+            if p.initializeEngine then p:initializeEngine() end
+        end
+    end
+end
+
+function SettingsWidget:assembleContent()
+    local D = self.dialog
+    local content = FrameContainer:new{
+        radius     = Size.radius.window,
+        bordersize = Size.border.window,
+        background = BACKGROUND_COLOR,
+        padding    = 0,
+        margin     = 0,
+
+        VerticalGroup:new{
+            align = "left",
+            D.title_bar,
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = self.gameModeGroup:getSize().h },
+                self.gameModeGroup,
+            },
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = self.playerSettingsGroup:getSize().h },
+                self.playerSettingsGroup,
+            },
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = self.difficultyGroup:getSize().h },
+                self.difficultyGroup,
+            },
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = self.engineButton:getSize().h },
+                self.engineButton,
+            },
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = self.interfaceButton:getSize().h },
+                self.interfaceButton,
+            },
+
+            VerticalSpan:new{ width = Size.padding.large },
+
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.title_bar:getSize().w, h = D.button_table:getSize().h },
+                D.button_table
+            },
+            VerticalSpan:new{ width = Size.padding.small },
+            CenterContainer:new{
+                dimen = Geometry:new{ w = D.width, h = Screen:scaleBySize(32) },
+                ButtonWidget:new{
+                    text     = _("Reset to Defaults"),
+                    radius   = Size.radius.button,
+                    padding  = Size.padding.small,
+                    width    = math.floor(D.width * 0.8),
+                    callback = function()
+                        UIManager:show(ConfirmBox:new{
+                            text       = _("Reset all settings to defaults?"),
+                            ok_text    = _("Reset"),
+                            ok_callback = function() self:resetToDefaults() end,
+                        })
+                    end,
+                },
+            },
+        }
+    }
+
+    D.movable = MovableContainer:new{ content }
+    D[1]      = CenterContainer:new{ dimen = Screen:getSize(), D.movable }
+end
+
+function SettingsWidget:resetToDefaults()
+    self.changes.skill_level     = 0
+    self.changes.game_mode       = MODE_CHESS
+    self.changes.engine_depth    = 2
+    self.changes.blunder_chance  = 0.20
+    self.changes.engine_movetime = 1
+    self.changes.force_goldfish  = false
+    self.changes.learning_mode   = false
+    self.changes.show_selected   = true
+    self.changes.previous_move_hints = false
+    self.changes.opponent_hints = false
+    self.changes.check_hints = false
+    self.changes.rotate_top_pieces = false
+    self.changes.thinking_indicator = true
+    self.changes.human_choice    = { [Chess.WHITE] = true, [Chess.BLACK] = false }
+    self.changes.time_control    = {
+        [Chess.WHITE] = { base_minutes = 15, incr_seconds = 10 },
+        [Chess.BLACK] = { base_minutes = 15, incr_seconds = 10 },
+    }
+    self:applyEngineChanges(self.changes)
+    self:applyInterfaceChanges(self.changes)
+    self:applyAndClose()
+end
+function SettingsWidget:applyAndClose()
+    local s = self.changes
+
+    -- When opened from the start menu, self.timer may be nil — just skip
+    -- the live-object updates; the values are still persisted via setSetting.
+    if self.timer and self.timer.base then
+        local function applyTime(color)
+            local baseOld = self.timer.base[color] / 60
+            local incrOld = self.timer.increment[color]
+            local c = s.time_control[color]
+            if baseOld ~= c.base_minutes then
+                self.timer.base[color] = c.base_minutes * 60
+                self.timer.time[color] = c.base_minutes * 60
+            end
+            if incrOld ~= c.incr_seconds then
+                self.timer.increment[color] = c.incr_seconds
+            end
+        end
+        applyTime(Chess.WHITE)
+        applyTime(Chess.BLACK)
+    end
+
+    -- Online, Lichess decides who plays which colour; do not let the Human/Computer
+    -- radios overwrite it.
+    if self.game and not self:isOnlineMode() then
+        for _, color in ipairs({Chess.WHITE, Chess.BLACK}) do
+            if self.game.is_human(color) ~= s.human_choice[color] then
+                self.game.set_human(color, s.human_choice[color])
+            end
+        end
+    end
+
+    if self.parent and self.parent.setSetting then
+        local p = self.parent
+        p:setSetting("game_mode",      s.game_mode or MODE_CHESS)
+        p:setSetting("human_white",    s.human_choice[Chess.WHITE])
+        p:setSetting("human_black",    s.human_choice[Chess.BLACK])
+        p:setSetting("learning_mode",  s.learning_mode and true or false)
+        p:setSetting("show_selected",  s.show_selected and true or false)
+        p:setSetting("previous_move_hints", s.previous_move_hints and true or false)
+        p:setSetting("opponent_hints", s.opponent_hints and true or false)
+        p:setSetting("check_hints", s.check_hints and true or false)
+        p:setSetting("rotate_top_pieces", s.rotate_top_pieces and true or false)
+        p:setSetting("thinking_indicator", s.thinking_indicator ~= false)
+        local wc = s.time_control[Chess.WHITE]
+        local bc = s.time_control[Chess.BLACK]
+        p:setSetting("time_base_white", wc.base_minutes * 60)
+        p:setSetting("time_base_black", bc.base_minutes * 60)
+        p:setSetting("time_incr_white", wc.incr_seconds)
+        p:setSetting("time_incr_black", bc.incr_seconds)
+    end
+
+    if self.parent and self.parent.updateBoardOrientation then
+        self.parent:updateBoardOrientation()
+    end
+    self.onApply(s)
+    UIManager:close(self.dialog)
+end
+
+return SettingsWidget
