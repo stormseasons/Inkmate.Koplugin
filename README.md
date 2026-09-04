@@ -48,7 +48,7 @@ Note: You must be connected to Wi-Fi, and your device must have curl installed t
 
 * **Lichess Dashboard:** Once connected, you can access the dashboard to Seek a new opponent (matchmaking) or Resume an ongoing game that you are currently playing on your account.
 
-* **Quick Time Controls:** When seeking an opponent, easily choose between standard presets for Blitz (3+0, 3+2, 5+0, 5+3), Rapid (10+0, 10+5, 15+10), and Classical (30+0), along with your preferred color and whether the game is Rated or Casual.
+* **Quick Time Controls:** When seeking an opponent, easily choose between standard presets for Blitz (3+0, 3+2, 5+0, 5+3) and Rapid (10+0, 10+5, 15+10), along with your preferred color and whether the game is Rated or Casual.
   
 * **Daily Puzzles:** Challenge yourself with the official Lichess Daily Puzzle fetched directly from their servers.
   
