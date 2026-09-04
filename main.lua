@@ -373,7 +373,11 @@ function Kochess:startPuzzleGame(fen, solution, first_is_opp)
         UIManager:close(self)
     end
     
-    self.timer = Timer.new(function() end)
+    self.timer = Timer:new(
+        {[Chess.WHITE]=0, [Chess.BLACK]=0},
+        {[Chess.WHITE]=0, [Chess.BLACK]=0},
+        function() end
+    )
     self:initializeBoard()
     self:buildUILayout()
     self.board:updateBoard()
