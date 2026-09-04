@@ -97,7 +97,14 @@ function StartMenu:showMainMenu()
     local btn_exit = ButtonWidget:new{
         text = _("Exit"),
         width = self.btn_w, height = self.btn_h,
-        callback = function() UIManager:close(self) end
+        callback = function()
+            if self.parent then
+                if self.parent.stopThinkingIndicator then self.parent:stopThinkingIndicator() end
+                if self.parent.timer and self.parent.timer.stop then self.parent.timer:stop() end
+                if self.parent.saveGameState then self.parent:saveGameState() end
+            end
+            UIManager:close(self, "full")
+        end
     }
 
     local group = VerticalGroup:new{
