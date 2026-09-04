@@ -418,14 +418,15 @@ function Kochess:startPuzzle(online)
         UIManager:show(require("ui/widget/infomessage"):new{ text = _("Fetching daily puzzle...") })
         
         local Lichess = require("lichess")
-        local api = Lichess.new{ curl = self:getSetting("lichess_curl_path", "curl") }
+        local api = Lichess.new{ 
+            curl = self:getSetting("lichess_curl_path", "curl"),
+            token = self:getSetting("lichess_token", "")
+        }
         api:request({ path = "/api/puzzle/daily" }, function(ok, data, code, err)
             -- close info message? Actually infomessage has no easy close handle if not kept,
             -- but let's just proceed to show board which will cover it or we can ignore it.
-            if ok and data and data.puzzle and data.game and data.game.pgn then
-                local temp_game = Chess:new()
-                temp_game.load_pgn(data.game.pgn)
-                local fen = temp_game.fen()
+            if ok and data and data.puzzle and data.puzzle.fen and data.puzzle.solution then
+                local fen = data.puzzle.fen
                 local solution = data.puzzle.solution
                 self:startPuzzleGame(fen, solution, false)
             else
