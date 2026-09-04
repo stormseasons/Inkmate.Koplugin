@@ -364,7 +364,7 @@ function Kochess:startPuzzleGame(fen, solution, first_is_opp)
         local m = self.current_puzzle:getNextExpectedMove()
         if m then
             self.current_puzzle:advance()
-            local r_move = self.game.move_from_uci(m)
+            local r_move = {from=m:sub(1,2), to=m:sub(3,4), promotion=(#m==5 and m:sub(5,5) or nil)}
             self.game.move(r_move)
         end
     end
@@ -1753,7 +1753,7 @@ function Kochess:onMoveExecuted(move)
                 local reply_uci = self.current_puzzle:getNextExpectedMove()
                 if reply_uci then
                     self.current_puzzle:advance()
-                    local r_move = self.game.move_from_uci(reply_uci)
+                    local r_move = {from=reply_uci:sub(1,2), to=reply_uci:sub(3,4), promotion=(#reply_uci==5 and reply_uci:sub(5,5) or nil)}
                     self.game.move(r_move)
                 end
                 self.board:updateBoard()
