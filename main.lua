@@ -432,7 +432,17 @@ function Kochess:startPuzzle(online)
             if ok and data and data.puzzle and data.puzzle.fen and data.puzzle.solution then
                 local fen = data.puzzle.fen
                 local solution = data.puzzle.solution
-                self:startPuzzleGame(fen, solution, false)
+                
+                local info = "Daily Puzzle"
+                if data.puzzle.id then info = info .. " #" .. data.puzzle.id end
+                if data.puzzle.rating then info = info .. " (Rating: " .. data.puzzle.rating .. ")" end
+                if data.puzzle.plays then info = info .. "\nPlayed: " .. data.puzzle.plays .. " times" end
+                if data.puzzle.themes and #data.puzzle.themes > 0 then
+                    info = info .. "\nThemes: " .. table.concat(data.puzzle.themes, ", ")
+                end
+                self.current_puzzle_info = info
+                
+                self:startPuzzleGame(fen, solution, true)
             else
                 UIManager:show(require("startmenu"):new{ parent = self })
                 UIManager:show(require("ui/widget/infomessage"):new{ text = _("Failed to fetch daily puzzle.") })
@@ -1412,7 +1422,14 @@ function Kochess:buildUILayout()
 end
 
 function Kochess:updatePgnLogInitialText()
-    if self.pgn_log then self.pgn_log:setText(""); UIManager:setDirty(self, "ui") end
+    if self.pgn_log then
+        local text = ""
+        if self.game_mode == "puzzle" and self.current_puzzle_info then
+            text = self.current_puzzle_info
+        end
+        self.pgn_log:setText(text)
+        UIManager:setDirty(self, "ui")
+    end
 end
 
 function Kochess:updateVisualEvalBar()
