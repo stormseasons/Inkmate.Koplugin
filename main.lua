@@ -1331,13 +1331,14 @@ function Kochess:buildUILayout()
     end }
     specs[#specs + 1] = { icon = "home", cb = function()
         UIManager:show(ConfirmBox:new{
-            text        = _("Are you sure you want to Exit?"),
-            ok_text     = _("Exit"),
+            text        = _("Return to main menu?"),
+            ok_text     = _("Menu"),
             ok_callback = function()
                 self:stopThinkingIndicator()
                 self.timer:stop()
                 self:saveGameState()
-                UIManager:close(self, "full")
+                UIManager:close(self)
+                self:onInkMateStart()
             end,
         })
     end }
