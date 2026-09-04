@@ -67,6 +67,12 @@ If no valid engine is available inkmate will fall back to basic Goldfish engine.
 
 On first launch you are asked for a Lichess token. Paste one to play online, or choose Play offline — everything except Lichess play works with no account and no network.
 
+**SCREENSHOTS**
+
+<img width="1272" height="1696" alt="Image" src="https://github.com/user-attachments/assets/5ec184d4-0741-4166-9c32-1a33db06c23a" />
+<img width="1272" height="1696" alt="Image" src="https://github.com/user-attachments/assets/2b4300aa-b0da-4bad-83aa-cea41528a309" />
+
+
 ## License
 This plugin is a derivative of kochess and CasualKochess, released under the GNU General Public License v3.
 See `LICENSE` for full terms.
