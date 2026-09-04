@@ -1,115 +1,77 @@
-# Casual Chess & Board Games for KOReader E-Ink Devices
-Casual Chess, Checkers, Reversi and Fox & Hounds plugin for KOReader, designed for Kobo and other ARM e-ink devices (Kindle, PocketBook, Cervantes, Remarkable).
-Chess has been derived from the work by Baptiste Fouques & Victor Fariña
+ **InkMate**
+ 
+InkMate is a suite of classic board games designed specifically for KOReader on e-ink devices with fully integration with LICHESS API for online matches.
 
-Contributions by [kbarni](https://github.com/kbarni) to Reversi and Fox & Hounds AI engines.
+* **OFFLINE MODE**
+  
 
----
+* **How to Play Offline**
+  
+Open InkMate from your KOReader plugins menu.
 
-## Download
-https://github.com/MJCopper/casualkochess.koplugin/releases/download/v2.0.2/casualkochess.koplugin.v2.0.2.zip
+Tap Play offline on the startup screen (or the main menu).
 
----
+You will be taken directly to the game board. From here, you can start playing immediately.
 
-## Features
-- Play Human Vs Human, Human Vs Computer, Computer Vs Computer.
-- Play real opponents online on **lichess.org** via the Board API (see below).
-- Play chess against the Stockfish engine.
-- Completely offline, no internet required (except for Lichess play).
-- Pre-defined difficulty levels.
-- Adjustable computer skill level (0–20).
-- Adjustable computer think time (1–10 seconds).
-- Adjustable computer search depth (1-ThinkTime).
-- Adjustable blunder chance (0%-60%), Creates the possibilty for Stockfish to makes mistakes, plays more like a casual human.
-- Custom Goldfish AI for chess as a fall-back when Stockfish engine fails to load. - It's not very smart, but still playable.
-- Switch between Chess, Checkers, Reversi and Fox & Hounds
-- Setting to invert pieces at "top of screen" end of board for a more natural Human Vs Human game.
-- Learning hints, shows valid moves for selected piece.
-- Checkmate, Draw, Stalemate & 50-Move Rule detection.
-- Chess clock with configurable time controls per player (base time + increment).
-- Opening detection with ECO code display.
-- Position evaluation display.
-- PGN save and load.
-- Game state saved and restored on close/re-open.
-- Designed for casual play, defaults set to a friendly difficulty.
+To customize your game, tap the Gear Icon (Settings) in the bottom left corner:
 
----
+Game Selection: Switch between Chess, Checkers, Reversi, and Fox & Hounds.
 
-## Playing on Lichess
+Engine Settings: Adjust Stockfish's skill level (0-20), think time, search depth, and blunder chance to match your skill.
 
-Casual Chess can use lichess.org as the opponent instead of the local engine. The
-board, rules, clock and PGN log are the same; only the opponent changes.
+Time Controls: Set up a local chess clock for blitz or rapid games.
 
-**Setup**
+Visuals: Toggle move hints, check highlights, or invert the opponent's pieces for a comfortable "table-top" Human vs. Human match on your e-reader.
 
-The first time you open Casual Chess it asks for a Lichess API token. Either
-paste one and tap **Play on Lichess**, or tap **Play offline** to skip — you can
-add the token later under the gear icon → **Play on Lichess...**
+* **LICHESS MODE**
+  
+InkMate features full integration with the Lichess API, allowing you to play against real people online directly from your e-reader!
 
-To get a token:
+**How to Connect to the Lichess API**
 
-1. Sign in at lichess.org
-2. Open <https://lichess.org/account/oauth/token/create?scopes[]=board:play>
-3. Tick **"Play games with the board API"** (`board:play`) and nothing else, then
-   **Create**
-4. Copy the token — Lichess shows it only once — and paste it into the plugin
+To play online, you need to provide InkMate with a personal Lichess API token.
 
-From there, **Seek a new opponent** pairs you with someone at the chosen time
-control, or **Resume an ongoing game...** lists games you already have running.
-The `+` toolbar button ends the current online game and seeks a new one.
+Sign in to your account at lichess.org.
 
-**Requirements**
+Go to the API token creation page: https://lichess.org/account/oauth/token/create.
 
-- A network connection, and the `curl` binary on the device. Most Kobo and Kindle
-  firmwares do not ship `curl`; if it is missing the plugin says so on startup.
-  Put a static `curl` for your architecture on the device and set
-  `lichess_curl_path` in `casualkochess.lua` to its full path.
+Select the necessary scope: You must enable "Play games with the board API" (board:play) and "Puzzles" (Puzzle:write).
 
-**What changes in online mode**
+Click Create and copy the generated token (it will start with lip_.......).
 
-- Undo, redo and the engine evaluation are disabled, and the move-hint overlays
-  are hidden. Engine assistance during a Lichess game violates their Terms of
-  Service and gets accounts banned.
-- Lichess owns the clock and the game result; the local clock follows the server.
-- The board orientation follows the colour Lichess dealt you.
+Open InkMate, go to Settings > Play on Lichess... and paste your token.
 
-**Note on the token**: it is stored unencrypted in KOReader's settings on the
-device. Use a token scoped to `board:play` only, and revoke it if the device is
-lost.
+Note: You must be connected to Wi-Fi, and your device must have curl installed to communicate with the server.
 
----
 
-## Installation
-1. Copy `casualkochess.koplugin/` into your KOReader plugins directory:
-   - Kobo: `/mnt/onboard/.adds/koreader/plugins/`
+**Online Features**
 
-2. Copy the appropriate Stockfish binary into `casualkochess.koplugin/engines/`:
-   - Kobo and other ARM e-ink readers: a compatible `stockfish` ARM binary is included, this step can be skipped.
-   - If no valid engine is available Casual Chess will fall back to basic Goldfish engine.
+* **Lichess Dashboard:** Once connected, you can access the dashboard to Seek a new opponent (matchmaking) or Resume an ongoing game that you are currently playing on your account.
 
-3. Restart KOReader. The plugin appears in the main menu as **Casual Chess**.
+* **Quick Time Controls:** When seeking an opponent, easily choose between standard presets for Blitz (3+0, 3+2, 5+0, 5+3), Rapid (10+0, 10+5, 15+10), and Classical (30+0), along with your preferred color and whether the game is Rated or Casual.
+  
+* **Daily Puzzles:** Challenge yourself with the official Lichess Daily Puzzle fetched directly from their servers.
+  
+* **Fair Play Mode:** **To ensure compliance with Lichess Terms of Service and prevent cheating, playing online automatically hides engine evaluations, disables move hints, and locks the undo/redo functionality.**
+  
+* **In-Game Actions**: The toolbar adapts during online play, swapping out local functions (like "Load PGN") for an online actions menu where you can **Offer a Draw, Propose a Takeback, or Resign.**
 
-4. On first launch you are asked for a Lichess token. Paste one to play online,
-   or choose **Play offline** — everything except Lichess play works with no
-   account and no network.
+Installation
+Copy inkmate.koplugin/ into your KOReader plugins directory:
 
----
+Kobo: /mnt/onboard/.adds/koreader/plugins/
+Copy the appropriate Stockfish binary into inkmate.koplugin/engines/:
 
-## Screenshots
+Kobo and other ARM e-ink readers: a compatible stockfish ARM binary is included, this step can be skipped.
+If no valid engine is available inkmate will fall back to basic Goldfish engine.
 
-<p align="center">
-  <img src="screenshots/chesshints.jpg" alt="Hints" width="300" style="padding: 16px;">
-  <img src="screenshots/checkers.jpg" alt="Checkers" width="300" style="padding: 16px;">
-  <img src="screenshots/settings.jpg" alt="Settings" width="300" style="padding: 16px;">
-  <img src="screenshots/interface.jpg" alt="Settings" width="300" style="padding: 16px;">
-</p>
-
----
+On first launch you are asked for a Lichess token. Paste one to play online, or choose Play offline — everything except Lichess play works with no account and no network.
 
 ## License
-This plugin is a derivative of kochess, released under the GNU General Public License v3.
+This plugin is a derivative of kochess and CasualKochess, released under the GNU General Public License v3.
 See `LICENSE` for full terms.
 
+Based on Casualkochess by MJCopper https://github.com/MJCopper/casualkochess.koplugin
 Based on Kochess © Victor Fariña https://github.com/coffman/kochess.koplugin  
 Based on the original kochess by Baptiste Fouques https://github.com/bateast/kochess  
 Chess logic provided by: https://github.com/arizati/chess.lua  
