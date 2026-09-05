@@ -380,11 +380,13 @@ function Kochess:startPuzzleGame(fen, solution, first_is_opp)
     )
     self:initializeBoard()
     self:buildUILayout()
+    self:updatePgnLogInitialText()
     self.board:updateBoard()
     UIManager:show(self)
 end
 
 function Kochess:startPuzzle(online)
+    self.puzzle_is_online = online
     if not online then
         -- Load offline puzzle from puzzles.csv
         local path = joinPath(PLUGIN_PATH, "puzzles.csv")
@@ -2114,6 +2116,10 @@ function Kochess:updatePlayerDisplay(ind)
 end
 
 function Kochess:resetGame()
+    if self.game_mode == "puzzle" then
+        self:startPuzzle(self.puzzle_is_online or false)
+        return
+    end
     if self:isLichessMode() then
         -- "New game" online means letting go of this Lichess game and seeking a
         -- fresh one, not rewinding the board.
@@ -2151,7 +2157,9 @@ end
 function Kochess:showGameOverDialog(result, reason)
     self:stopThinkingIndicator()
     local text
-    if result == "1-0" or result == "0-1" then
+    if result == "puzzle" then
+        text = _("Puzzle Solved!")
+    elseif result == "1-0" or result == "0-1" then
         local winner
         if self:isFoxHoundMode() then
             winner = (result == "1-0") and _("Fox") or _("Hounds")
