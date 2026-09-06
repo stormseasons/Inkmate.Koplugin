@@ -1721,9 +1721,9 @@ function Kochess:showLichessGameActions()
         title = _("Game Actions"),
         title_align = "center",
         buttons = {
-            {{ text = "½ " .. _("Offer draw"),  callback = function() UIManager:close(menu); self:handleOfferDraw() end }},
-            {{ text = "↩ " .. _("Propose takeback"), callback = function() UIManager:close(menu); self:handleProposeTakeback() end }},
-            {{ text = "✕ " .. _("Resign"),      callback = function() UIManager:close(menu); self:handleResignOnline() end }},
+            {{ text = "½ " .. _("Offer draw"),  callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleOfferDraw() end) end }},
+            {{ text = "↩ " .. _("Propose takeback"), callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleProposeTakeback() end) end }},
+            {{ text = "✕ " .. _("Resign"),      callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleResignOnline() end) end }},
             {{ text = _("Cancel"),       callback = function() UIManager:close(menu) end }},
         },
     }

@@ -383,11 +383,11 @@ function LichessBackend:_onGameState(state)
     end
 
     -- Detect draw/takeback offers from the opponent.
-    -- Lichess sends wdraw/bdraw/wtakeback/btakeback booleans on every gameState.
+    -- Lichess sends wdraw/bdraw/wTakeback/bTakeback booleans on every gameState.
     -- We fire events only on false->true transitions to avoid repeated prompts.
     if self.my_color then
         local opp_draw = (self.my_color == "white") and state.bdraw or state.wdraw
-        local opp_take = (self.my_color == "white") and state.btakeback or state.wtakeback
+        local opp_take = (self.my_color == "white") and state.bTakeback or state.wTakeback
         local last_draw_key = (self.my_color == "white") and "_last_bdraw" or "_last_wdraw"
         local last_take_key = (self.my_color == "white") and "_last_btakeback" or "_last_wtakeback"
 
