@@ -393,7 +393,7 @@ function Kochess:startPuzzle(online)
         local f = io.open(path, "r")
         if not f then
             UIManager:show(require("startmenu"):new{ parent = self })
-            UIManager:show(require("ui/widget/infomessage"):new{
+            UIManager:show(InfoMessage:new{
                 text = _("Offline puzzles not found.\n\nPlease place a 'puzzles.csv' file in the plugin folder.")
             })
             return
@@ -421,7 +421,7 @@ function Kochess:startPuzzle(online)
     else
         -- Load online puzzle from Lichess Daily API
         local UIManager = require("ui/uimanager")
-        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Fetching daily puzzle...") })
+        UIManager:show(InfoMessage:new{ text = _("Fetching daily puzzle...") })
         
         local Lichess = require("lichess")
         local api = Lichess.new{ 
@@ -447,7 +447,7 @@ function Kochess:startPuzzle(online)
                 self:startPuzzleGame(fen, solution, true)
             else
                 UIManager:show(require("startmenu"):new{ parent = self })
-                UIManager:show(require("ui/widget/infomessage"):new{ text = _("Failed to fetch daily puzzle.") })
+                UIManager:show(InfoMessage:new{ text = _("Failed to fetch daily puzzle.") })
             end
         end)
     end
@@ -869,7 +869,7 @@ function Kochess:initializeLichess()
             UIManager:setDirty(self.status_bar, "ui")
         end
         if not self._seeking_msg then
-            self._seeking_msg = require("ui/widget/infomessage"):new{ text = _("Searching for opponents...") }
+            self._seeking_msg = InfoMessage:new{ text = _("Searching for opponents...") }
             UIManager:show(self._seeking_msg)
         end
     end)
@@ -966,7 +966,7 @@ function Kochess:initializeLichess()
             ok_callback = function()
                 backend:offerDraw(true, function(ok, _, _, err)
                     if not ok then
-                        UIManager:show(require("ui/widget/infomessage"):new{
+                        UIManager:show(InfoMessage:new{
                             text = _("Accept draw failed") .. ": " .. tostring(err),
                         })
                     end
@@ -980,17 +980,17 @@ function Kochess:initializeLichess()
 
     backend:on("draw_offer_declined", function()
         if self.engine ~= backend then return end
-        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Opponent declined the draw.") })
+        UIManager:show(InfoMessage:new{ text = _("Opponent declined the draw.") })
     end)
 
     backend:on("takeback_offer_declined", function()
         if self.engine ~= backend then return end
-        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Opponent declined the takeback.") })
+        UIManager:show(InfoMessage:new{ text = _("Opponent declined the takeback.") })
     end)
 
     backend:on("takeback_offer_accepted", function()
         if self.engine ~= backend then return end
-        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Takeback accepted.") })
+        UIManager:show(InfoMessage:new{ text = _("Takeback accepted.") })
     end)
 
     backend:on("takeback_offer_received", function()
@@ -1697,12 +1697,13 @@ function Kochess:handleOfferDraw()
     UIManager:show(ConfirmBox:new{
         text = _("Offer a draw to your opponent?"),
         ok_text = _("Offer draw"),
+        cancel_text = _("Cancel"),
         ok_callback = function()
             backend:offerDraw(true, function(ok, _, _, err)
                 if ok then
-                    UIManager:show(require("ui/widget/infomessage"):new{ text = _("Waiting for the opponent to accept the draw...") })
+                    UIManager:show(InfoMessage:new{ text = _("Waiting for the opponent to accept the draw...") })
                 else
-                    UIManager:show(require("ui/widget/infomessage"):new{
+                    UIManager:show(InfoMessage:new{
                         text = _("Draw offer failed") .. ": " .. tostring(err),
                     })
                 end
@@ -1721,12 +1722,13 @@ function Kochess:handleProposeTakeback()
     UIManager:show(ConfirmBox:new{
         text = _("Propose a takeback to your opponent?\nThey must accept for the move to be undone."),
         ok_text = _("Propose takeback"),
+        cancel_text = _("Cancel"),
         ok_callback = function()
             backend:takeback(true, function(ok, _, _, err)
                 if ok then
-                    UIManager:show(require("ui/widget/infomessage"):new{ text = _("Waiting for the opponent to accept the takeback...") })
+                    UIManager:show(InfoMessage:new{ text = _("Waiting for the opponent to accept the takeback...") })
                 else
-                    UIManager:show(require("ui/widget/infomessage"):new{
+                    UIManager:show(InfoMessage:new{
                         text = _("Takeback failed") .. ": " .. tostring(err),
                     })
                 end
@@ -1792,7 +1794,7 @@ function Kochess:onMoveExecuted(move)
         else
             self.game.undo()
             self.board:updateBoard()
-            UIManager:show(require("ui/widget/infomessage"):new{ text = _("Incorrect move, try again!") })
+            UIManager:show(InfoMessage:new{ text = _("Incorrect move, try again!") })
             return
         end
     end
