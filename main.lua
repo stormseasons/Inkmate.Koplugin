@@ -868,10 +868,18 @@ function Kochess:initializeLichess()
             self.status_bar:setSubTitle(_("Seeking an opponent..."))
             UIManager:setDirty(self.status_bar, "ui")
         end
+        if not self._seeking_msg then
+            self._seeking_msg = require("ui/widget/infomessage"):new{ text = _("Searching for opponents...") }
+            UIManager:show(self._seeking_msg)
+        end
     end)
 
     backend:on("game_started", function(info)
         if self.engine ~= backend then return end
+        if self._seeking_msg then
+            UIManager:close(self._seeking_msg)
+            self._seeking_msg = nil
+        end
         self.lichess_color = info.my_color
         self.lichess_opponent = info.opponent_name
         self:setSetting("lichess_game_id", info.game_id)
@@ -953,12 +961,12 @@ function Kochess:initializeLichess()
         if self.engine ~= backend then return end
         UIManager:show(ConfirmBox:new{
             text = _("Your opponent offers a draw. Accept?"),
-            ok_text = _("Accept draw"),
+            ok_text = _("Accept"),
             cancel_text = _("Decline"),
             ok_callback = function()
                 backend:offerDraw(true, function(ok, _, _, err)
                     if not ok then
-                        UIManager:show(InfoMessage:new{
+                        UIManager:show(require("ui/widget/infomessage"):new{
                             text = _("Accept draw failed") .. ": " .. tostring(err),
                         })
                     end
@@ -968,6 +976,21 @@ function Kochess:initializeLichess()
                 backend:offerDraw(false)
             end,
         })
+    end)
+
+    backend:on("draw_offer_declined", function()
+        if self.engine ~= backend then return end
+        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Opponent declined the draw.") })
+    end)
+
+    backend:on("takeback_offer_declined", function()
+        if self.engine ~= backend then return end
+        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Opponent declined the takeback.") })
+    end)
+
+    backend:on("takeback_offer_accepted", function()
+        if self.engine ~= backend then return end
+        UIManager:show(require("ui/widget/infomessage"):new{ text = _("Takeback accepted.") })
     end)
 
     backend:on("takeback_offer_received", function()
@@ -1009,7 +1032,7 @@ local LICHESS_STATUS_TEXT = {
     outoftime     = _("Out of time."),
     timeout       = _("Opponent left the game."),
     stalemate     = _("Draw! Stalemate."),
-    draw          = _("Draw."),
+    draw          = _("Draw accepted."),
     aborted       = _("Game aborted."),
     nostart       = _("Game aborted: opponent never started."),
     cheat         = _("Game ended: cheat detected."),
@@ -1677,9 +1700,9 @@ function Kochess:handleOfferDraw()
         ok_callback = function()
             backend:offerDraw(true, function(ok, _, _, err)
                 if ok then
-                    UIManager:show(InfoMessage:new{ text = _("Draw offered.") })
+                    UIManager:show(require("ui/widget/infomessage"):new{ text = _("Waiting for the opponent to accept the draw...") })
                 else
-                    UIManager:show(InfoMessage:new{
+                    UIManager:show(require("ui/widget/infomessage"):new{
                         text = _("Draw offer failed") .. ": " .. tostring(err),
                     })
                 end
@@ -1701,9 +1724,9 @@ function Kochess:handleProposeTakeback()
         ok_callback = function()
             backend:takeback(true, function(ok, _, _, err)
                 if ok then
-                    UIManager:show(InfoMessage:new{ text = _("Takeback proposed.") })
+                    UIManager:show(require("ui/widget/infomessage"):new{ text = _("Waiting for the opponent to accept the takeback...") })
                 else
-                    UIManager:show(InfoMessage:new{
+                    UIManager:show(require("ui/widget/infomessage"):new{
                         text = _("Takeback failed") .. ": " .. tostring(err),
                     })
                 end

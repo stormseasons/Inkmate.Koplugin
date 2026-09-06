@@ -69,10 +69,10 @@ function LichessBackend.new(opts)
     self.reconnect_delay = RECONNECT_DELAY
 
     -- Track draw/takeback offer flags so we only fire events on transitions.
-    self._last_wdraw = false
-    self._last_bdraw = false
-    self._last_wtakeback = false
-    self._last_btakeback = false
+    self._last_opp_draw = false
+    self._last_my_draw = false
+    self._last_opp_take = false
+    self._last_my_take = false
 
     self.state = {
         uciok = false,
@@ -352,7 +352,9 @@ function LichessBackend:_onGameState(state)
     local old_server_moves = self.server_moves or {}
     self.server_moves = moves
 
+    local takeback_accepted = false
     if #moves < #old_server_moves then
+        takeback_accepted = true
         -- The server's move list shrank. This is a takeback.
         self.local_moves = moves
         self.sent_upto = #moves
@@ -389,24 +391,46 @@ function LichessBackend:_onGameState(state)
         self:_trigger("resync", self.initial_fen, moves)
     end
 
-    -- Detect draw/takeback offers from the opponent.
+    -- Detect draw/takeback offers from the opponent and resolve our own.
     -- Lichess sends wdraw/bdraw/wTakeback/bTakeback booleans on every gameState.
-    -- We fire events only on false->true transitions to avoid repeated prompts.
-    if self.my_color then
-        local opp_draw = (self.my_color == "white") and state.bdraw or state.wdraw
-        local opp_take = (self.my_color == "white") and state.bTakeback or state.wTakeback
-        local last_draw_key = (self.my_color == "white") and "_last_bdraw" or "_last_wdraw"
-        local last_take_key = (self.my_color == "white") and "_last_btakeback" or "_last_wtakeback"
+    if state.status == "started" then
+        local opp_draw, my_draw = state.bdraw, state.wdraw
+        local opp_take, my_take = state.bTakeback, state.wTakeback
+        if self.my_color == "black" then
+            opp_draw, my_draw = state.wdraw, state.bdraw
+            opp_take, my_take = state.wTakeback, state.bTakeback
+        end
 
-        if opp_draw and not self[last_draw_key] then
+        if opp_draw and not self._last_opp_draw then
             self:_trigger("draw_offer_received")
         end
-        self[last_draw_key] = opp_draw and true or false
+        self._last_opp_draw = opp_draw and true or false
 
-        if opp_take and not self[last_take_key] then
+        if self._last_my_draw and not my_draw then
+            self:_trigger("draw_offer_declined")
+        end
+        self._last_my_draw = my_draw and true or false
+
+        if opp_take and not self._last_opp_take then
             self:_trigger("takeback_offer_received")
         end
-        self[last_take_key] = opp_take and true or false
+        self._last_opp_take = opp_take and true or false
+
+        if takeback_accepted then
+            if self._last_my_take then
+                self:_trigger("takeback_offer_accepted")
+            end
+            self._last_my_take = false
+            self._last_opp_take = false
+        else
+            if self._last_my_take and not my_take then
+                self:_trigger("takeback_offer_declined")
+            end
+            self._last_my_take = my_take and true or false
+        end
+    else
+        self._last_my_draw = false
+        self._last_my_take = false
     end
 
     local status = state.status
