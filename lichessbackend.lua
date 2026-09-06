@@ -349,9 +349,16 @@ function LichessBackend:_onGameState(state)
     end
 
     local moves = splitMoves(state.moves)
+    local old_server_moves = self.server_moves or {}
     self.server_moves = moves
 
-    if isPrefix(moves, self.local_moves) then
+    if #moves < #old_server_moves then
+        -- The server's move list shrank. This is a takeback.
+        self.local_moves = moves
+        self.sent_upto = #moves
+        self.waiting = false
+        self:_trigger("resync", self.initial_fen, moves)
+    elseif isPrefix(moves, self.local_moves) then
         -- The server list is a prefix of ours, so nothing has diverged. Either it
         -- is identical, or we are one move ahead with a POST still in flight --
         -- which is exactly what a clock-only gameState looks like. Do not resync
@@ -374,8 +381,8 @@ function LichessBackend:_onGameState(state)
             self:_trigger("bestmove", uci)
         end
     else
-        -- A takeback, or a gap we missed while disconnected. Rebuild from the
-        -- server rather than guessing which moves we are short of.
+        -- A gap we missed while disconnected (moves diverged and grew).
+        -- Rebuild from the server rather than guessing which moves we are short of.
         self.local_moves = moves
         self.sent_upto = #moves
         self.waiting = false
