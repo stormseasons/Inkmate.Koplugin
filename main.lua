@@ -962,7 +962,6 @@ function Kochess:initializeLichess()
         UIManager:show(ConfirmBox:new{
             text = _("Your opponent offers a draw. Accept?"),
             ok_text = _("Accept"),
-            cancel_text = _("Decline"),
             ok_callback = function()
                 backend:offerDraw(true, function(ok, _, _, err)
                     if not ok then
@@ -998,7 +997,6 @@ function Kochess:initializeLichess()
         UIManager:show(ConfirmBox:new{
             text = _("Your opponent proposes a takeback. Accept?"),
             ok_text = _("Accept"),
-            cancel_text = _("Decline"),
             ok_callback = function()
                 backend:takeback(true, function(ok, _, _, err)
                     if not ok then
@@ -1055,7 +1053,6 @@ function Kochess:showLichessGameOver(status, winner)
     UIManager:show(ConfirmBox:new{
         text = text,
         ok_text = _("Continue"),
-        cancel_text = nil,
         ok_callback = function()
             -- The finished game is gone; the next online game needs a fresh seek.
             self:setSetting("lichess_game_id", "")
@@ -1697,7 +1694,6 @@ function Kochess:handleOfferDraw()
     UIManager:show(ConfirmBox:new{
         text = _("Offer a draw to your opponent?"),
         ok_text = _("Offer draw"),
-        cancel_text = _("Cancel"),
         ok_callback = function()
             backend:offerDraw(true, function(ok, _, _, err)
                 if ok then
@@ -1722,7 +1718,6 @@ function Kochess:handleProposeTakeback()
     UIManager:show(ConfirmBox:new{
         text = _("Propose a takeback to your opponent?\nThey must accept for the move to be undone."),
         ok_text = _("Propose takeback"),
-        cancel_text = _("Cancel"),
         ok_callback = function()
             backend:takeback(true, function(ok, _, _, err)
                 if ok then
@@ -2134,8 +2129,10 @@ function Kochess:updatePlayerDisplay(ind)
     local white_label = self:isFoxHoundMode() and "Fox" or "White"
     local black_label = self:isFoxHoundMode() and "Hounds" or "Black"
     local opponent = self:isLichessMode() and (self.lichess_opponent or "Lichess") or ("Stockfish " .. self:getSetting("engine_elo", 1500))
-    local white = white_label .. "(Human)"
-    local black = "(" .. opponent .. ")" .. black_label
+    local w_human = self.game and self.game.is_human and self.game.is_human(Chess.WHITE)
+    local b_human = self.game and self.game.is_human and self.game.is_human(Chess.BLACK)
+    local white = w_human and (white_label .. "(Human)") or ("(" .. opponent .. ")" .. white_label)
+    local black = b_human and (black_label .. "(Human)") or ("(" .. opponent .. ")" .. black_label)
     local sep = ind or (self.running and ((self.game.turn()==Chess.WHITE and " < ") or " > ") or " || ")
     self.status_bar:setSubTitle(white .. sep .. black)
 end
@@ -2224,7 +2221,6 @@ function Kochess:showGameOverDialog(result, reason)
     UIManager:show(ConfirmBox:new{
         text = text,
         ok_text = _("Play again"),
-        cancel_text = _("Close"),
         ok_callback = function() self:handleRematch() end,
         -- Close leaves the final position on the board so it can be looked over.
         -- The + toolbar button starts a fresh game whenever they are ready.
