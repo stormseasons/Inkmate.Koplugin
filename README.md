@@ -41,7 +41,7 @@ Click Create and copy the generated token (it will start with lip_.......).
 
 Open InkMate, go to Settings > Play on Lichess... and paste your token.
 
-Note: You must be connected to Wi-Fi, and your device must have curl installed to communicate with the server.
+Note: You must be connected to Wi-Fi, and your device must have curl installed to communicate with the server. curl comes preinstalled on almost all modern operating systems. The download is only for very old e-readers.
 
 
 **Online Features**
