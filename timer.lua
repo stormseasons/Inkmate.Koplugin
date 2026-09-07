@@ -15,6 +15,7 @@ function Timer:new(duration, increment, callback)
         startTime = 0,
         callback = callback,
         run_id = 0,
+        _needs_increment = false,
     }
     setmetatable(obj, self)
     return obj
@@ -46,14 +47,17 @@ end
 function Timer:stop()
     if self.running then
         local elapsed = os.difftime(os.time(), self.startTime)
+        local incr = self._needs_increment and self.increment[self.currentPlayer] or 0
+        self._needs_increment = false
         self.time[self.currentPlayer] = math.max(0, self.time[self.currentPlayer] - elapsed
-                                                 + self.increment[self.currentPlayer])
+                                                 + incr)
         self.running = false
     end
     self.run_id = self.run_id + 1
 end
 
 function Timer:switchPlayer()
+    self._needs_increment = true
     self:stop()
     self.currentPlayer = (self.currentPlayer == Chess.WHITE) and Chess.BLACK or Chess.WHITE
     self:start()
@@ -63,6 +67,7 @@ function Timer:reset()
     self.time = { [Chess.WHITE] = self.base[Chess.WHITE], [Chess.BLACK] = self.base[Chess.BLACK] }
     self.currentPlayer = Chess.WHITE
     self.running = false
+    self._needs_increment = false
     self.run_id = self.run_id + 1
 end
 

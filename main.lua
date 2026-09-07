@@ -1458,9 +1458,6 @@ function Kochess:updateVisualEvalBar()
     if not self.visual_eval_bar then return end
     local cp = self.last_cp
     local mate = self.last_mate
-    
-    if cp and self.eval_turn == Chess.BLACK then cp = -cp end
-    if mate and self.eval_turn == Chess.BLACK then mate = -mate end
 
     local w_pct = 50
     if mate then
@@ -1630,7 +1627,7 @@ function Kochess:handleUndoMove(all)
     self:stopUCI(); self.timer:stop()
     if all then while self.game.undo() do end else self.game.undo() end
     self.board:updateBoard(); self:updatePgnLog(); UIManager:setDirty(self, "ui")
-    self.timer:start()
+    if self.running then self.timer:start() end
 end
 
 function Kochess:handleRedoMove(all)
@@ -1653,7 +1650,7 @@ function Kochess:handleRedoMove(all)
     self:stopUCI(); self.timer:stop()
     if all then while self.game.redo() do end else self.game.redo() end
     self.board:updateBoard(); self:updatePgnLog(); UIManager:setDirty(self, "ui")
-    self.timer:start()
+    if self.running then self.timer:start() end
 end
 
 function Kochess:showOnlineLockedMessage()
@@ -2062,7 +2059,6 @@ function Kochess:launchUCI()
         btime    = btime,
         winc     = self.timer.increment[Chess.WHITE] * 1000,
         binc     = self.timer.increment[Chess.BLACK] * 1000,
-        movetime = movetime_ms,
         depth    = depth_limit,
     })
 end
@@ -2094,7 +2090,7 @@ function Kochess:shutdownEngine()
 end
 
 function Kochess:updatePgnLog()
-    local moves = self.game:history()
+    local moves = self.game.history()
     local txt = ""
     for i, m in ipairs(moves) do
         if i%2==1 then txt = txt .. " " .. (math.floor(i/2)+1) .. "." end
@@ -2128,7 +2124,9 @@ function Kochess:updatePlayerDisplay(ind)
     end
     local white_label = self:isFoxHoundMode() and "Fox" or "White"
     local black_label = self:isFoxHoundMode() and "Hounds" or "Black"
-    local opponent = self:isLichessMode() and (self.lichess_opponent or "Lichess") or ("Stockfish " .. self:getSetting("engine_elo", 1500))
+    local EngineWidget = require("enginewidget")
+    local elo = EngineWidget.computeElo(self.current_skill or 0, self.engine_depth or 2, self.engine_movetime or 1, self.blunder_chance or 0.20)
+    local opponent = self:isLichessMode() and (self.lichess_opponent or "Lichess") or ("Stockfish " .. tostring(elo))
     local w_human = self.game and self.game.is_human and self.game.is_human(Chess.WHITE)
     local b_human = self.game and self.game.is_human and self.game.is_human(Chess.BLACK)
     local white = w_human and (white_label .. "(Human)") or ("(" .. opponent .. ")" .. white_label)

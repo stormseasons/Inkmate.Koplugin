@@ -15,7 +15,7 @@ local Screen = Device.screen
 local Blitbuffer = require("ffi/blitbuffer")
 local Lichess = require("lichess")
 
-local FrameContainer = require("ui/widget/container/framecontainer")
+
 
 local LichessDashboard = FrameContainer:extend{
     name = "lichess_dashboard",

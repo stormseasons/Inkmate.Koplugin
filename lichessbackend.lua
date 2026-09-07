@@ -340,7 +340,18 @@ function LichessBackend:_onGameFull(full)
     self.sent_upto = #moves
     self:_trigger("resync", self.initial_fen, moves)
 
-    if full.state then self:_onGameState(full.state) end
+    if full.state then
+        if full.state.wtime and full.state.btime then
+            self:_trigger("clock", full.state.wtime / 1000, full.state.btime / 1000)
+        end
+        local status = full.state.status
+        if status and status ~= "started" and status ~= "created" then
+            self.finished = true
+            self.waiting = false
+            self.state.searching = false
+            self:_trigger("game_over", status, full.state.winner)
+        end
+    end
 end
 
 function LichessBackend:_onGameState(state)
