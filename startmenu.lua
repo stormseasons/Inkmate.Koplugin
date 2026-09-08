@@ -138,7 +138,7 @@ function StartMenu:showOfflineMenu()
     }
 
     local btn_puzzles = ButtonWidget:new{
-        text = _("Solve Puzzles"),
+        text = _("Offline Puzzles"),
         width = self.btn_w, height = self.btn_h,
         callback = function()
             UIManager:close(self)

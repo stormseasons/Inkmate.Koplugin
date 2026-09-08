@@ -104,8 +104,7 @@ function EngineWidget:isGoldfishActive()
     local chess_mode = not (self.parent and self.parent.isCheckersMode and self.parent:isCheckersMode())
         and not (self.parent and self.parent.isFoxHoundMode and self.parent:isFoxHoundMode())
         and not (self.parent and self.parent.isReversiMode and self.parent:isReversiMode())
-    return chess_mode
-        and (self.changes.force_goldfish or (self.parent and self.parent.goldfish_active))
+    return chess_mode and self.changes.force_goldfish
 end
 
 function EngineWidget:refreshEloLabel()

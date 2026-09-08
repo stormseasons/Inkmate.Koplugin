@@ -24,19 +24,23 @@ function InterfaceWidget:new(opts)
     assert(opts.onSave, "onSave callback is required")
 
     local init = opts.initial or {}
+    local changes = {
+        show_selected = init.show_selected ~= false,
+        learning_mode = init.learning_mode == true,
+        previous_move_hints = init.previous_move_hints == true,
+        opponent_hints = init.opponent_hints == true,
+        check_hints = init.check_hints == true,
+        rotate_top_pieces = init.rotate_top_pieces == true,
+        thinking_indicator = init.thinking_indicator ~= false,
+    }
+    local initial_backup = {}
+    for k, v in pairs(changes) do initial_backup[k] = v end
     return setmetatable({
         parent = opts.parent,
         onSave = opts.onSave,
         dialog = nil,
-        changes = {
-            show_selected = init.show_selected ~= false,
-            learning_mode = init.learning_mode == true,
-            previous_move_hints = init.previous_move_hints == true,
-            opponent_hints = init.opponent_hints == true,
-            check_hints = init.check_hints == true,
-            rotate_top_pieces = init.rotate_top_pieces == true,
-            thinking_indicator = init.thinking_indicator ~= false,
-        },
+        changes = changes,
+        _initial_backup = initial_backup,
     }, InterfaceWidget)
 end
 
@@ -44,7 +48,13 @@ function InterfaceWidget:show()
     local dlg = InputDialog:new{
         title = _("Interface"),
         save_callback = function() self:saveAndClose() end,
-        dismiss_callback = function() UIManager:close(self.dialog) end,
+        dismiss_callback = function()
+            for k, v in pairs(self._initial_backup) do
+                self.changes[k] = v
+            end
+            self:applyPreview()
+            UIManager:close(self.dialog)
+        end,
     }
     dlg.element_width = math.floor(dlg.width * 0.8)
     self.dialog = dlg

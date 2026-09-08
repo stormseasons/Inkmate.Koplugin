@@ -74,6 +74,7 @@ function Lichess:setToken(token)
     if not f then return false, "could not write curl config" end
     f:write(string.format('header = "Authorization: Bearer %s"\n', clean))
     f:write('header = "Accept: application/x-ndjson"\n')
+    f:write('header = "User-Agent: InkMate-KOReader-Plugin/1.0"\n')
     f:write("silent\n")
     f:write("show-error\n")
     f:close()
@@ -181,6 +182,8 @@ function Lichess:request(opts, cb)
     local url = API_HOST .. opts.path .. (opts.query and ("?" .. opts.query) or "")
 
     local args = {
+        "-4",
+        "--http1.1",
         "-K", self.config_path,
         "-o", body_path,
         "-w", "%{http_code}\n",
@@ -270,6 +273,8 @@ function Lichess:stream(opts, on_event, on_close)
     end
 
     local args = {
+        "-4",
+        "--http1.1",
         "-K", self.config_path,
         "-N",
         "--no-buffer",

@@ -428,7 +428,7 @@ function SettingsWidget:getCurrentDifficultyPosition()
 end
 
 function SettingsWidget:getDifficultyLabel()
-    if not self:isCheckersMode() and not self:isFoxHoundMode() and not self:isReversiMode() and (self.changes.force_goldfish or (self.parent and self.parent.goldfish_active)) then
+    if not self:isCheckersMode() and not self:isFoxHoundMode() and not self:isReversiMode() and self.changes.force_goldfish then
         return "Goldfish ELO: ~600"
     end
     local pos = self:getCurrentDifficultyPosition()
@@ -773,8 +773,9 @@ function SettingsWidget:applyAndClose()
             local incrOld = self.timer.increment[color]
             local c = s.time_control[color]
             if baseOld ~= c.base_minutes then
+                local diff_sec = (c.base_minutes - baseOld) * 60
                 self.timer.base[color] = c.base_minutes * 60
-                self.timer.time[color] = c.base_minutes * 60
+                self.timer.time[color] = math.max(0, self.timer.time[color] + diff_sec)
             end
             if incrOld ~= c.incr_seconds then
                 self.timer.increment[color] = c.incr_seconds

@@ -180,7 +180,7 @@ function LichessDashboard:buildDashboard(account, games)
     }
 
     local btn_puzzles = ButtonWidget:new{
-        text = _("Solve Puzzles"),
+        text = _("Daily Puzzle"),
         width = btn_w, height = btn_h,
         callback = function()
             UIManager:close(self)

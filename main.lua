@@ -185,6 +185,9 @@ function Kochess:onCloseWidget()
         self.timer:stop()
     end
     self:shutdownEngine()
+    if self.saveGameState then
+        self:saveGameState()
+    end
 end
 
 function Kochess:handleEvent(event)
@@ -357,6 +360,8 @@ function Kochess:startPuzzleGame(fen, solution, first_is_opp)
     self.human_white = true
     self.human_black = true
     self.game = Chess:new()
+    self.game.set_human(Chess.WHITE, true)
+    self.game.set_human(Chess.BLACK, true)
     self.game.load(fen)
     self.current_puzzle = Puzzle.new(fen, solution, first_is_opp)
     
@@ -962,6 +967,7 @@ function Kochess:initializeLichess()
         UIManager:show(ConfirmBox:new{
             text = _("Your opponent offers a draw. Accept?"),
             ok_text = _("Accept"),
+            cancel_text = _("Decline"),
             ok_callback = function()
                 backend:offerDraw(true, function(ok, _, _, err)
                     if not ok then
@@ -997,6 +1003,7 @@ function Kochess:initializeLichess()
         UIManager:show(ConfirmBox:new{
             text = _("Your opponent proposes a takeback. Accept?"),
             ok_text = _("Accept"),
+            cancel_text = _("Decline"),
             ok_callback = function()
                 backend:takeback(true, function(ok, _, _, err)
                     if not ok then
@@ -1738,10 +1745,10 @@ function Kochess:showLichessGameActions()
         title = _("Game Actions"),
         title_align = "center",
         buttons = {
-            {{ text = "½ " .. _("Offer draw"),  callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleOfferDraw() end) end }},
-            {{ text = "↩ " .. _("Propose takeback"), callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleProposeTakeback() end) end }},
-            {{ text = "✕ " .. _("Resign"),      callback = function() UIManager:close(menu); UIManager:nextTick(function() self:handleResignOnline() end) end }},
-            {{ text = _("Cancel"),       callback = function() UIManager:close(menu) end }},
+            {{ text = "½ " .. _("Offer draw"),  callback = function() UIManager:nextTick(function() self:handleOfferDraw() end) end }},
+            {{ text = "↩ " .. _("Propose takeback"), callback = function() UIManager:nextTick(function() self:handleProposeTakeback() end) end }},
+            {{ text = "✕ " .. _("Resign"),      callback = function() UIManager:nextTick(function() self:handleResignOnline() end) end }},
+            {{ text = _("Cancel") }},
         },
     }
     UIManager:show(menu)
@@ -1811,6 +1818,16 @@ function Kochess:onMoveExecuted(move)
     local is_over, result, reason = self.game.game_over()
     if is_over then
         if self:isLichessMode() then
+            -- BUGFIX: If the human played a game-ending move (like checkmate),
+            -- we must send the final move to the server before stopping!
+            if self.engine and self.engine.state.uciok then
+                local moves = {}
+                for _, m in ipairs(self.game.history({ verbose = true })) do
+                    moves[#moves + 1] = m.from .. m.to .. (m.promotion or "")
+                end
+                self.engine:position({ moves = table.concat(moves, " ") })
+            end
+
             -- Lichess confirms the result on the game stream; wait for that so we
             -- do not raise two dialogs for the same finish.
             self:stopUCI()
