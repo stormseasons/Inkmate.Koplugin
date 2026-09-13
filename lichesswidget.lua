@@ -54,6 +54,7 @@ function LichessWidget:new(opts)
         seek_rated      = init.seek_rated and true or false,
         seek_color      = init.seek_color or "random",
         lichess_game_id = init.lichess_game_id or "",
+        lichess_legacy_curl = init.lichess_legacy_curl and true or false,
     }
 
     return o
@@ -70,6 +71,7 @@ function LichessWidget:show()
 
     self:buildAccountGroup()
     self:buildTimeControl()
+    self:buildLegacyToggle()
     self:buildRatedToggle()
     self:buildColorGroup()
     self:assembleContent()
@@ -184,7 +186,11 @@ function LichessWidget:apiClient()
     if self.changes.lichess_token == "" then return nil, _("No token set.") end
     local ok, detail = Lichess.probeCurl(self:curlPath())
     if not ok then return nil, detail end
-    return Lichess.new{ token = self.changes.lichess_token, curl = self:curlPath() }
+    return Lichess.new{
+        token = self.changes.lichess_token,
+        curl = self:curlPath(),
+        legacy_curl = self.changes.lichess_legacy_curl
+    }
 end
 
 function LichessWidget:curlPath()
@@ -238,6 +244,27 @@ function LichessWidget:buildRatedToggle()
             self.changes.seek_rated = not self.changes.seek_rated
             self.ratedButton.text = label()
             self.ratedButton:init()
+            self:markDirty()
+            UIManager:setDirty(self.dialog, "ui")
+        end,
+    }
+end
+
+function LichessWidget:buildLegacyToggle()
+    local w = self.dialog.element_width
+    local function label()
+        return checkbox(_("Legacy network fix (older Kindles)"), self.changes.lichess_legacy_curl)
+    end
+    self.legacyButton = ButtonWidget:new{
+        text = label(),
+        width = w,
+        radius = Size.radius.button,
+        padding = Size.padding.small,
+        align = "left",
+        callback = function()
+            self.changes.lichess_legacy_curl = not self.changes.lichess_legacy_curl
+            self.legacyButton.text = label()
+            self.legacyButton:init()
             self:markDirty()
             UIManager:setDirty(self.dialog, "ui")
         end,
@@ -349,6 +376,8 @@ function LichessWidget:assembleContent()
         centered(self.timeGroup),
         VerticalSpan:new{ width = Size.padding.large },
         centered(self.ratedButton),
+        VerticalSpan:new{ width = Size.padding.large },
+        centered(self.legacyButton),
         VerticalSpan:new{ width = Size.padding.large },
         centered(self.colorGroup),
         VerticalSpan:new{ width = Size.padding.large },

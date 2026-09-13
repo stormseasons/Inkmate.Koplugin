@@ -103,7 +103,7 @@ function StartMenu:showMainMenu()
                 if self.parent.timer and self.parent.timer.stop then self.parent.timer:stop() end
                 if self.parent.saveGameState then self.parent:saveGameState() end
             end
-            UIManager:close(self, "full")
+            UIManager:close(self)
         end
     }
 

@@ -56,6 +56,7 @@ function Lichess.new(opts)
     opts = opts or {}
     local self = setmetatable({}, Lichess)
     self.curl = opts.curl or "curl"
+    self.legacy_curl = opts.legacy_curl
     self.config_path = tmpDir() .. "/inkmate-lichess.curlrc"
     self.seq = 0
     self.handles = {}
@@ -153,7 +154,16 @@ function Lichess:_spawn(args, on_line, on_exit)
                 fired = true
                 return false
             end
-            if handle.eof or Utils.pollProcess(handle.pid) then
+            local p_err = Utils.pollProcess(handle.pid)
+            if p_err then
+                if p_err ~= "engine process exited with status 0" then
+                    finish(false, p_err)
+                else
+                    finish(true)
+                end
+                return false
+            end
+            if handle.eof then
                 finish(true)
                 return false
             end
@@ -182,14 +192,16 @@ function Lichess:request(opts, cb)
     local url = API_HOST .. opts.path .. (opts.query and ("?" .. opts.query) or "")
 
     local args = {
-        "-4",
-        "--http1.1",
         "-K", self.config_path,
         "-o", body_path,
         "-w", "%{http_code}\n",
         "--max-time", tostring(opts.timeout or 20),
         "-X", opts.method or "GET",
     }
+    if self.legacy_curl then
+        table.insert(args, 1, "-4")
+        table.insert(args, 2, "--http1.1")
+    end
     if opts.form then
         for k, v in pairs(opts.form) do
             args[#args + 1] = "--data-urlencode"
@@ -273,13 +285,15 @@ function Lichess:stream(opts, on_event, on_close)
     end
 
     local args = {
-        "-4",
-        "--http1.1",
         "-K", self.config_path,
         "-N",
         "--no-buffer",
         "-X", opts.method or "GET",
     }
+    if self.legacy_curl then
+        table.insert(args, 1, "-4")
+        table.insert(args, 2, "--http1.1")
+    end
     if opts.form then
         for k, v in pairs(opts.form) do
             args[#args + 1] = "--data-urlencode"

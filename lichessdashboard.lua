@@ -47,7 +47,11 @@ end
 
 function LichessDashboard:fetchData()
     local token = self.parent:getSetting("lichess_token", "")
-    local api = Lichess.new{ token = token, curl = self.parent:getSetting("lichess_curl_path", "curl") }
+    local api = Lichess.new{
+        token = token,
+        curl = self.parent:getSetting("lichess_curl_path", "curl"),
+        legacy_curl = self.parent:getSetting("lichess_legacy_curl")
+    }
     
     api:request({ path = "/api/account" }, function(ok, account_data, code, err)
         -- ok can still come back with an empty or unparseable body.

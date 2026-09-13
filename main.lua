@@ -856,6 +856,7 @@ function Kochess:initializeLichess()
     local backend = LichessBackend.new{
         token   = token,
         curl    = self:getSetting("lichess_curl_path", "curl"),
+        legacy_curl = self:getSetting("lichess_legacy_curl"),
         game_id = game_id,
         seek    = (not game_id) and self:lichessSeekSettings() or nil,
     }

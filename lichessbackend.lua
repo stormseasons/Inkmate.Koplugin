@@ -51,8 +51,7 @@ end
 function LichessBackend.new(opts)
     opts = opts or {}
     local self = setmetatable({}, LichessBackend)
-
-    self.api = Lichess.new{ token = opts.token, curl = opts.curl }
+    self.api = Lichess.new{ token = opts.token, curl = opts.curl, legacy_curl = opts.legacy_curl }
     self.callbacks = {}
     self.closed = false
 

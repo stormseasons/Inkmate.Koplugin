@@ -81,6 +81,7 @@ function OptionsMenu:init()
                     seek_rated      = get("seek_rated", false),
                     seek_color      = get("seek_color", "random"),
                     lichess_game_id = get("lichess_game_id", ""),
+                    lichess_legacy_curl = get("lichess_legacy_curl", false),
                 },
                 onSave = function(saved)
                     if p and p.setSetting then
@@ -91,6 +92,7 @@ function OptionsMenu:init()
                         p:setSetting("seek_rated",      saved.seek_rated and true or false)
                         p:setSetting("seek_color",      saved.seek_color or "random")
                         p:setSetting("lichess_game_id", saved.lichess_game_id or "")
+                        p:setSetting("lichess_legacy_curl", saved.lichess_legacy_curl and true or false)
                     end
                     UIManager:setDirty(options_menu_self, "ui")
                 end,
