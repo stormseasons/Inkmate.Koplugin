@@ -12,7 +12,7 @@
 -- as-is.
 
 local DataStorage = require("datastorage")
-local Utils = require("utils")
+local Utils = require("inkmate_utils")
 local json = require("json")
 
 local API_HOST = "https://lichess.org"

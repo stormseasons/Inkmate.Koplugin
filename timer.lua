@@ -1,5 +1,5 @@
 local Chess = require("chess/src/chess")
-local Utils = require("utils")
+local Utils = require("inkmate_utils")
 
 local Timer = {}
 local TIMER_TIMEOUT = 1

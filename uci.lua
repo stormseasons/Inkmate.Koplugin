@@ -1,6 +1,6 @@
 -- Async UCI wrapper for Stockfish.
 
-local Utils  = require("utils")
+local Utils  = require("inkmate_utils")
 
 local M = {}
 
